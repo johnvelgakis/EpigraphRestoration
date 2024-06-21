@@ -15,9 +15,10 @@ def filter_epigraphs_by_region(df, region_id):
 
 # Genetic Algorithm functions
 def create_initial_population(dictionary_size, population_size):
-    population = [random.sample(range(1, dictionary_size + 1), 2) for _ in range(population_size)]
-    print("Initial Population:", population) 
+    population = [np.random.choice(range(1, dictionary_size + 1), 2, replace=False).tolist() for _ in range(population_size)]
+    print("Initial Population:", population)  # Debug
     return population
+
 
 def fitness_function(individual, target_vector, vectorizer, tokens):
     words = [tokens[i - 1] for i in individual]
@@ -29,19 +30,21 @@ def fitness_function(individual, target_vector, vectorizer, tokens):
     return fitness
 
 def selection(population, fitnesses):
-    selected = random.choices(population, weights=fitnesses, k=len(population))
+    selected_indices = np.random.choice(len(population), len(population), p=np.array(fitnesses)/sum(fitnesses))
+    selected = [population[i] for i in selected_indices]
+    print(selected)
     return selected
 
 def crossover(parent1, parent2):
-    crossover_point = random.randint(0, 1)
+    crossover_point = np.random.randint(0, 2)
     child1 = parent1[:crossover_point] + parent2[crossover_point:]
     child2 = parent2[:crossover_point] + parent1[crossover_point:]
     return child1, child2
 
 def mutate(individual, dictionary_size, mutation_rate):
     for i in range(len(individual)):
-        if random.random() < mutation_rate:
-            individual[i] = random.randint(1, dictionary_size)
+        if np.random.rand() < mutation_rate:
+            individual[i] = np.random.randint(1, dictionary_size + 1)
     return individual
 
 def genetic_algorithm(epigraphs, target_epigraph, population_size=100, generations=1000, mutation_rate=0.01):
@@ -73,12 +76,12 @@ def genetic_algorithm(epigraphs, target_epigraph, population_size=100, generatio
 
 # Main function
 if __name__ == "__main__":
-    file_path = 'iphi2802.csv'
+    file_path = 'data.csv'
     df = load_epigraph_data(file_path)
     filtered_epigraphs = filter_epigraphs_by_region(df, 1683)
     epigraph_texts = filtered_epigraphs['text'].tolist()
     
-    target_epigraph = "[...] αλεξανδρε ουδις [...]"
+    target_epigraph = "[---] αλεξανδρε ουδις [---]"
     
     restored_words = genetic_algorithm(epigraph_texts, target_epigraph)
     print("Restored words:", restored_words)
