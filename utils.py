@@ -9,7 +9,7 @@ TOKEN_MODE = 'word'
 def vectorize_texts(train_texts):
     kwargs = {
         'ngram_range': NGRAM_RANGE,
-        'dtype': 'int32',
+        'dtype': 'float32',
         'strip_accents': 'unicode',
         'decode_error': 'replace',
         'analyzer': TOKEN_MODE,
@@ -18,6 +18,6 @@ def vectorize_texts(train_texts):
         'max_features': TOP_K,
     }
     vectorizer = TfidfVectorizer(**kwargs)
-    x_train = vectorizer.fit_transform(train_texts)
+    dataOut = vectorizer.fit_transform(train_texts)
     tokens = vectorizer.get_feature_names_out()
-    return x_train, tokens
+    return dataOut, tokens, vectorizer

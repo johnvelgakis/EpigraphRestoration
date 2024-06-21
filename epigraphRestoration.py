@@ -6,23 +6,27 @@ import random
 
 # Load epigraph data
 def load_epigraph_data(file_path):
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path, sep='\t')
     return df
 
 # Filter epigraphs by geographic region
 def filter_epigraphs_by_region(df, region_id):
-    return df[df['geo_location'] == region_id]
+    return df[df['region_main_id'] == region_id]
 
 # Genetic Algorithm functions
 def create_initial_population(dictionary_size, population_size):
-    return [random.sample(range(1, dictionary_size + 1), 2) for _ in range(population_size)]
+    population = [random.sample(range(1, dictionary_size + 1), 2) for _ in range(population_size)]
+    print("Initial Population:", population) 
+    return population
 
-def fitness_function(individual, target_vector, dictionary, tokens):
+def fitness_function(individual, target_vector, vectorizer, tokens):
     words = [tokens[i - 1] for i in individual]
     completed_epigraph = " ".join(words)
-    completed_vector = dictionary.transform([completed_epigraph])
+    completed_vector = vectorizer.transform([completed_epigraph])
     similarity = cosine_similarity(target_vector, completed_vector)
-    return similarity[0][0]
+    fitness = similarity[0][0]
+    print(f"Individual: {individual}, Words: {words}, Fitness: {fitness}") 
+    return fitness
 
 def selection(population, fitnesses):
     selected = random.choices(population, weights=fitnesses, k=len(population))
@@ -41,13 +45,14 @@ def mutate(individual, dictionary_size, mutation_rate):
     return individual
 
 def genetic_algorithm(epigraphs, target_epigraph, population_size=100, generations=1000, mutation_rate=0.01):
-    dictionary, tokens = vectorize_texts(epigraphs)
-    target_vector = dictionary.transform([target_epigraph])
+    transformed_epigraphs, tokens, vectorizer = vectorize_texts(epigraphs)
+    target_vector = vectorizer.transform([target_epigraph])
     dictionary_size = len(tokens)
     
     population = create_initial_population(dictionary_size, population_size)
     for generation in range(generations):
-        fitnesses = [fitness_function(individual, target_vector, dictionary, tokens) for individual in population]
+        fitnesses = [fitness_function(individual, target_vector, vectorizer, tokens) for individual in population]
+        print(f"Generation {generation}: Fitnesses = {fitnesses}") 
         
         if max(fitnesses) == 1.0:
             break
