@@ -2,14 +2,14 @@ import subprocess
 import random
 import argparse
 import tkinter as tk
-from tkinter import Scrollbar, Canvas, Frame, Label, ttk
+from tkinter import Scrollbar, Canvas, Frame, Label, ttk, Text
 from PIL import Image, ImageTk
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-def run_experiment(kwargs):
+def run_experiment(kwargs, start_trial):
     command = [
         'python', 'epigraphRestoration.py',
         '--population_size', str(kwargs['population_size']),
@@ -37,6 +37,7 @@ def run_experiment(kwargs):
             ave_generations = float(line.split(":", 1)[1].strip())
 
     return {
+        'trial': start_trial,
         'best_epigraph': best_epigraph,
         'ave_fitness': ave_fitness,
         'ave_generations': ave_generations,
@@ -108,14 +109,16 @@ class FigureWindow:
         self.canvas.xview_scroll(int(-1*(event.delta/120)), "units")
 
     def add_figure(self, trial_number):
-        img = Image.open(f'media/trial{trial_number}.png').resize((400, 300))
-        img = ImageTk.PhotoImage(img)
-        label_img = tk.Label(self.frames[trial_number - 1], image=img)
-        label_img.image = img
-        label_img.pack()
-        
-        label_text = tk.Label(self.frames[trial_number - 1], text=f'Trial {trial_number}')
-        label_text.pack()
+        image_path = f'media/trial{trial_number}.png'
+        if os.path.exists(image_path):
+            img = Image.open(image_path).resize((400, 300))
+            img = ImageTk.PhotoImage(img)
+            label_img = tk.Label(self.frames[trial_number - 1], image=img)
+            label_img.image = img
+            label_img.pack()
+            
+            label_text = tk.Label(self.frames[trial_number - 1], text=f'Trial {trial_number}')
+            label_text.pack()
 
 def show_results(results):
     root = tk.Tk()
@@ -134,23 +137,49 @@ def show_results(results):
 
     df = pd.DataFrame(results)
     df.columns = df.columns.str.strip()  # Strip leading and trailing spaces from column names
-    
-    # Add 'trial' column to the DataFrame
-    df['trial'] = df.index + 1
+
+    # Debugging output for the DataFrame
+    print(df.head())
+    print(df.columns)
+
+    # Remove duplicate columns
+    df = df.loc[:, ~df.columns.duplicated()]
+
+    # Ensure 'ave_fitness' is numeric
+    if 'ave_fitness' in df.columns:
+        try:
+            df['ave_fitness'] = pd.to_numeric(df['ave_fitness'], errors='coerce')
+        except Exception as e:
+            print(f"Error converting 'ave_fitness' to numeric: {e}")
+            print(df['ave_fitness'].head())
 
     for i, row in df.iterrows():
-        trial_data = (i + 1, row.get('epigraphRestored', 'N/A'), row.get('ave_fitness', 'N/A'), row.get('ave_generations', 'N/A'),
+        trial_data = (row['trial'], row.get('epigraphRestored', 'N/A'), row.get('ave_fitness', 'N/A'), row.get('ave_generations', 'N/A'),
                       row.get('population_size', 'N/A'), row.get('generations', 'N/A'), row.get('crossover_rate', 'N/A'), 
                       row.get('mutation_rate', 'N/A'), row.get('elite_size', 'N/A'), row.get('num_runs', 'N/A'), 
                       row.get('improveThresh', 'N/A'), row.get('stagThresh', 'N/A'))
         tree.insert("", tk.END, values=trial_data)
+
+    # Find the epigraph with the highest average fitness
+    best_epigraph = df.loc[df['ave_fitness'].idxmax()]['epigraphRestored'] if 'ave_fitness' in df.columns else 'N/A'
+
+    # Display the epigraph with the highest average fitness
+    best_epigraph_frame = tk.Frame(root)
+    best_epigraph_frame.pack(fill=tk.BOTH, expand=True)
+
+    best_epigraph_label = tk.Label(best_epigraph_frame, text="Epigraph with Highest Average Fitness:")
+    best_epigraph_label.pack()
+
+    best_epigraph_text = Text(best_epigraph_frame, height=5, width=100)
+    best_epigraph_text.insert(tk.END, best_epigraph)
+    best_epigraph_text.pack()
 
     # Create a frame for the second table and graph
     frame_top10 = tk.Frame(root)
     frame_top10.pack(fill=tk.BOTH, expand=True)
 
     # Get top 10 trials based on ave_fitness
-    top10_df = df.nlargest(10, 'ave_fitness')
+    top10_df = df.nlargest(10, 'ave_fitness') if 'ave_fitness' in df.columns else df
 
     # Create a second treeview for top 10 trials
     top10_tree = ttk.Treeview(frame_top10, columns=columns, show='headings')
@@ -168,25 +197,45 @@ def show_results(results):
 
     # Create a figure for the graph
     fig, ax = plt.subplots(figsize=(10, 5))
-    bars = top10_df.plot(kind='bar', x='trial', y='ave_fitness', ax=ax)
-    ax.set_title('Top 10 Trials by Average Fitness')
-    ax.set_xlabel('Trial')
-    ax.set_ylabel('Average Fitness')
+    if not top10_df.empty and 'ave_fitness' in top10_df.columns:
+        bars = top10_df.plot(kind='bar', x='trial', y='ave_fitness', ax=ax)
+        ax.set_title('Top 10 Trials by Average Fitness')
+        ax.set_xlabel('Trial')
+        ax.set_ylabel('Average Fitness')
 
-    # Add labels on top of each bar
-    for bar in bars.patches:
-        ax.annotate(f'{bar.get_height():.2f}', 
-                    xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()), 
-                    xytext=(0, 3),  # 3 points vertical offset
-                    textcoords="offset points",
-                    ha='center', va='bottom')
+        # Add labels on top of each bar
+        for bar in bars.patches:
+            ax.annotate(f'{bar.get_height():.2f}', 
+                        xy=(bar.get_x() + bar.get_width() / 2, bar.get_height()), 
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
 
-    # Embed the plot in the Tkinter window
-    canvas = FigureCanvasTkAgg(fig, master=root)
-    canvas.draw()
-    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        # Embed the plot in the Tkinter window
+        canvas = FigureCanvasTkAgg(fig, master=root)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     root.mainloop()
+
+
+
+
+def get_last_trial_number():
+    last_trial = 0
+    if os.path.exists('experimentResults.txt'):
+        with open('experimentResults.txt', 'r') as file:
+            lines = file.readlines()
+            if lines:
+                last_line = lines[-1]
+                last_trial = int(last_line.split(":")[0].split("Trial")[1].strip())
+
+    if os.path.exists('experimentResults.csv'):
+        df = pd.read_csv('experimentResults.csv')
+        if not df.empty:
+            last_trial = max(last_trial, df['trial'].max())
+
+    return last_trial
 
 def main():
     parser = argparse.ArgumentParser(description='Run multiple experiments for Epigraph Restoration')
@@ -197,6 +246,8 @@ def main():
 
     num_trials = args.num_trials
     trials = []
+    last_trial_number = get_last_trial_number()
+    start_trial = last_trial_number + 1
 
     if args.results:
         if not os.path.exists('experimentResults.csv'):
@@ -241,9 +292,23 @@ def main():
 
     results = []
     for i, trial in enumerate(trials):
-        print(f"\nStarting trial {i+1}")
-        result = run_experiment(trial)
+        print(f"\nStarting trial {start_trial + i}")
+        result = run_experiment(trial, start_trial + i)
         results.append(result)
+
+    # Update the experimentResults.csv and experimentResults.txt files
+    df_new_results = pd.DataFrame(results)
+    if os.path.exists('experimentResults.csv'):
+        df_existing = pd.read_csv('experimentResults.csv')
+        df_combined = pd.concat([df_existing, df_new_results], ignore_index=True)
+    else:
+        df_combined = df_new_results
+
+    df_combined.to_csv('experimentResults.csv', index=False)
+
+    with open('experimentResults.txt', 'a') as file:
+        for result in results:
+            file.write(f"Trial {result['trial']}: '{result['best_epigraph']}' | num_runs={result['num_runs']}, population_size={result['population_size']}, generations={result['generations']}, crossover_rate={result['crossover_rate']}, mutation_rate={result['mutation_rate']}, elite_size={result['elite_size']}, improveThresh={result['improveThresh']}, stagThresh={result['stagThresh']} ---> ave_fitness={result['ave_fitness']}, ave_generations={result['ave_generations']}\n")
 
     # Schedule the creation of both windows
     root = tk.Tk()
