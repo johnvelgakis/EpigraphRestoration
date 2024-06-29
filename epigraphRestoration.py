@@ -1,9 +1,14 @@
 import numpy as np
 import pandas as pd
+import os
+import argparse
+import csv
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from deap import base, creator, tools
 import random
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # Load epigraph data
@@ -58,7 +63,7 @@ class GeneticAlgorithm:
         completed_vector = self.vectorizer.transform([completed_epigraph])
         similarity = cosine_similarity(self.target_vector, completed_vector)
         fitness = similarity[0][0]
-        print(f"Individual: {individual}, Completed Epigraph: {completed_epigraph}, Target Vector: {self.target_vector}, Completed Vector: {completed_vector}, Similarity: {similarity}, Fitness: {fitness}")  # Detailed Debug statement
+        print(f"Individual: {individual}, Completed Epigraph: {completed_epigraph}, Target Vector: {self.target_vector}, Completed Vector: {completed_vector}, Similarity: {similarity}, Fitness: {fitness}") 
         return (fitness,)  
 
     def setup_deap(self):
@@ -87,12 +92,12 @@ class GeneticAlgorithm:
             if best_fitness >= 100:
                 break
 
-            print(f"-- Generation {g} --")
+            print("-----------------\n Generation {g} \n-------------------")
             
             elite = tools.selBest(population, self.elite_size)
             offspring = self.toolbox.select(population, len(population) - self.elite_size)
             offspring = list(map(self.toolbox.clone, offspring))
-            print(f'Elite: {len(elite)}, offspring: {len(offspring)}')
+            print(f'#Elite: {len(elite)}, #offspring: {len(offspring)}')
             for child1, child2 in zip(offspring[::2], offspring[1::2]):
                 if random.random() < self.crossover_rate:
                     self.toolbox.mate(child1, child2)
@@ -130,15 +135,16 @@ class GeneticAlgorithm:
         best_individual = tools.selBest(population, 1)[0]
         best_epigraph = self.decode_individual(best_individual)
         print(f'Best individual: {best_individual} --> {best_epigraph},\nBest fitness: {best_fitness}')
-        return best_individual, best_fitnesses
+        return best_individual, best_epigraph, best_fitnesses
 
     def run(self):
         best_individuals = []
         num_generations = []
         avg_fitness_per_gen = []
+        best_epigraph_overall = None
 
         for _ in range(self.num_runs):
-            best_individual, best_fitnesses = self.run_single()
+            best_individual, best_epigraph, best_fitnesses = self.run_single()
             best_individuals.append(best_individual.fitness.values[0])
             num_generations.append(len(best_fitnesses))
 
@@ -146,41 +152,119 @@ class GeneticAlgorithm:
                 avg_fitness_per_gen = best_fitnesses
             else:
                 avg_fitness_per_gen = [sum(x) / 2 for x in zip(avg_fitness_per_gen, best_fitnesses)]
+            
+            best_epigraph_overall = best_epigraph
 
         ave_best_fitness = np.mean(best_individuals)
         ave_generations = np.mean(num_generations)
 
-        print("-- End of (successful) evolution --")
+        print("-----------------\n End of (successful) evolution \n-------------------")
         print("Average best fitness over all runs:", ave_best_fitness)
         print("Average number of generations:", ave_generations)
 
+        trial_number = self.get_trial_number()
         plt.plot(avg_fitness_per_gen)
         plt.xlabel('Generation')
         plt.ylabel('Average Best Fitness')
         plt.title('Evolution of Average Best Fitness Over Generations')
+        if not os.path.exists('media'):
+            os.makedirs('media')
+        plt.savefig(f'media/trial{trial_number}.png')
         plt.show()
         print(self.target_vector)
+        self.update_experiment_results(trial_number, best_epigraph_overall, ave_best_fitness, ave_generations)
         return self.decode_individual(tools.selBest(self.toolbox.population(n=self.population_size), 1)[0])
+    
+    def get_trial_number(self):
+        if not os.path.exists('experimentResults.txt'):
+            return 1
+        with open('experimentResults.txt', 'r') as file:
+            lines = file.readlines()
+        return len(lines) + 1
+
+    def update_experiment_results(self, trial_number, best_epigraph, ave_best_fitness, ave_generations):
+        print(f"Updating experimentResults.txt with trial {trial_number}")
+        # Update TXT
+        with open('experimentResults.txt', 'a') as file:
+            file.write(f"Trial {trial_number}: '{best_epigraph}' | num_runs={self.num_runs}, population_size={self.population_size}, generations={self.generations}, crossover_rate={self.crossover_rate}, mutation_rate={self.mutation_rate}, elite_size={self.elite_size}, improveThresh={self.improveThresh}, stagThresh={self.stagThresh} ---> ave_fitness={ave_best_fitness}, ave_generations={ave_generations}\n")
+        print("Experiment results TXT updated successfully!")
+        # Update CSV
+        csv_file = 'experimentResults.csv'
+        write_header = not os.path.exists(csv_file)
+        with open(csv_file, 'a') as csvfile:
+            fieldnames = ['Trial', 'epigraphRestored', 'ave_fitness', 'ave_generations', 'num_runs', 'population_size', 'generations', 'crossover_rate', 'mutation_rate', 'elite_size', 'improveThresh', 'stagThresh']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            writer.writerow({
+                'Trial': trial_number,
+                'epigraphRestored': best_epigraph,
+                'ave_fitness': ave_best_fitness,
+                'ave_generations': ave_generations,
+                'num_runs': self.num_runs,
+                'population_size': self.population_size,
+                'generations': self.generations,
+                'crossover_rate': self.crossover_rate,
+                'mutation_rate': self.mutation_rate,
+                'elite_size': self.elite_size,
+                'improveThresh': self.improveThresh,
+                'stagThresh': self.stagThresh
+            })
+        print("Experiment results CSV updated successfully!")
+
 
 # Main function
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Run Epigraph Restoration with Genetic Algorithm')
+    parser.add_argument('--interactive', action='store_true', help='Run in interactive mode')
+    parser.add_argument('--population_size', type=int, help='Population size')
+    parser.add_argument('--generations', type=int, help='Number of generations')
+    parser.add_argument('--crossover_rate', type=float, help='Crossover rate')
+    parser.add_argument('--mutation_rate', type=float, help='Mutation rate')
+    parser.add_argument('--elite_size', type=int, help='Elite size')
+    parser.add_argument('--num_runs', type=int, help='Number of runs')
+    parser.add_argument('--improveThresh', type=float, help='Improvement threshold')
+    parser.add_argument('--stagThresh', type=int, help='Stagnation threshold')
+
+    args = parser.parse_args()
+
     file_path = 'data.csv'
     df = load_epigraph_data(file_path)
     filtered_epigraphs = filter_epigraphs_by_region(df, 1693)
     epigraph_texts = filtered_epigraphs['text'].tolist()
-    
     target_epigraph = "αλεξανδρε ουδις"
+    # For INTERACTIVE mode
+    if args.interactive:
+        print('-----------------\nEpigraph Restoration\n-----------------')
+        print('Please enter the experiment\'s hyperparameters:')
+        population_size = int(input("Population size: "))
+        generations = int(input("Number of generations: "))
+        crossover_rate = float(input("Crossover rate: "))
+        mutation_rate = float(input("Mutation rate: "))
+        elite_size = int(input("Elite size: "))
+        num_runs = int(input("Number of runs: "))
+        improveThresh = float(input("Improvement threshold: "))
+        stagThresh = int(input("Stagnation threshold (generations): "))
+    else:
+        population_size = args.population_size or 100
+        generations = args.generations or 1000
+        crossover_rate = args.crossover_rate or 0.1
+        mutation_rate = args.mutation_rate or 0.01
+        elite_size = args.elite_size or 1
+        num_runs = args.num_runs or 10
+        improveThresh = args.improveThresh or 0.001
+        stagThresh = args.stagThresh or 25
 
     kwargs = {'epigraphs': epigraph_texts, 
               'target_epigraph': target_epigraph, 
-              'population_size': 1000, 
-              'generations': 2000, 
-              'crossover_rate': 0.2, 
-              'mutation_rate': 0.05, 
-              'elite_size': 10, 
-              'num_runs': 1000, 
-              'improveThresh': 0.001, 
-              'stagThresh': 100}
+              'population_size': population_size, 
+              'generations': generations, 
+              'crossover_rate': crossover_rate, 
+              'mutation_rate': mutation_rate, 
+              'elite_size': elite_size, 
+              'num_runs': num_runs, 
+              'improveThresh': improveThresh, 
+              'stagThresh': stagThresh}
     
     ga = GeneticAlgorithm(**kwargs)
     best_epigraph = ga.run()
