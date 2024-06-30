@@ -17,7 +17,7 @@
 
  ## Usage
 
- To run the epigraph restoration process, use the following command:
+ To run the Genetic Algorithm, use the following command:
  ```sh
  python epigraphRestoration.py --population_size 100 --generations 1000 --crossover_rate 0.6 --mutation_rate 0.01 --elite_size 1 --num_runs 10 --improveThresh 0.01 --stagThresh 25
  ```
