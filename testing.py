@@ -8,6 +8,8 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from datetime import datetime
+from time import time
 
 def run_experiment(kwargs, start_trial):
     command = [
@@ -124,10 +126,10 @@ def show_results(results):
     root = tk.Tk()
     root.title("Experiment Results")
 
-    columns = ['trial', 'epigraphRestored', 'ave_fitness', 'ave_generations', 
-               'population_size', 'generations', 'crossover_rate', 
-               'mutation_rate', 'elite_size', 'num_runs', 
-               'improveThresh', 'stagThresh']
+    columns = ['trial', 'Restored_epigraph', 'ave_fitness', 'ave_generations', 
+            'population_size', 'generations', 'crossover_rate', 
+            'mutation_rate', 'elite_size', 'num_runs', 
+            'improveThresh', 'stagThresh']
     
     tree = ttk.Treeview(root, columns=columns, show='headings')
     for col in columns:
@@ -155,9 +157,9 @@ def show_results(results):
 
     for i, row in df.iterrows():
         trial_data = (row['trial'], row.get('epigraphRestored', 'N/A'), row.get('ave_fitness', 'N/A'), row.get('ave_generations', 'N/A'),
-                      row.get('population_size', 'N/A'), row.get('generations', 'N/A'), row.get('crossover_rate', 'N/A'), 
-                      row.get('mutation_rate', 'N/A'), row.get('elite_size', 'N/A'), row.get('num_runs', 'N/A'), 
-                      row.get('improveThresh', 'N/A'), row.get('stagThresh', 'N/A'))
+                    row.get('population_size', 'N/A'), row.get('generations', 'N/A'), row.get('crossover_rate', 'N/A'), 
+                    row.get('mutation_rate', 'N/A'), row.get('elite_size', 'N/A'), row.get('num_runs', 'N/A'), 
+                    row.get('improveThresh', 'N/A'), row.get('stagThresh', 'N/A'))
         tree.insert("", tk.END, values=trial_data)
 
     # Find the epigraph with the highest average fitness
@@ -190,9 +192,9 @@ def show_results(results):
     
     for i, row in top10_df.iterrows():
         trial_data = (row['trial'], row.get('epigraphRestored', 'N/A'), row.get('ave_fitness', 'N/A'), row.get('ave_generations', 'N/A'),
-                      row.get('population_size', 'N/A'), row.get('generations', 'N/A'), row.get('crossover_rate', 'N/A'), 
-                      row.get('mutation_rate', 'N/A'), row.get('elite_size', 'N/A'), row.get('num_runs', 'N/A'), 
-                      row.get('improveThresh', 'N/A'), row.get('stagThresh', 'N/A'))
+                    row.get('population_size', 'N/A'), row.get('generations', 'N/A'), row.get('crossover_rate', 'N/A'), 
+                    row.get('mutation_rate', 'N/A'), row.get('elite_size', 'N/A'), row.get('num_runs', 'N/A'), 
+                    row.get('improveThresh', 'N/A'), row.get('stagThresh', 'N/A'))
         top10_tree.insert("", tk.END, values=trial_data)
 
     # Create a figure for the graph
@@ -219,8 +221,6 @@ def show_results(results):
     root.mainloop()
 
 
-
-
 def get_last_trial_number():
     last_trial = 0
     if os.path.exists('experimentResults.txt'):
@@ -238,13 +238,15 @@ def get_last_trial_number():
     return last_trial
 
 def main():
+    time_start = time()
     parser = argparse.ArgumentParser(description='Run multiple experiments for Epigraph Restoration')
     parser.add_argument('--exercise', action='store_true', help='Run predefined set of experiments')
-    parser.add_argument('--num_trials', type=int, default=10, help='Number of trials to run')
+    parser.add_argument('--num_trials', type=int, default=5, help='Number of trials to run')
     parser.add_argument('--results', action='store_true', help='Show stored results')
     args = parser.parse_args()
-
+    
     num_trials = args.num_trials
+    
     trials = []
     last_trial_number = get_last_trial_number()
     start_trial = last_trial_number + 1
@@ -285,7 +287,7 @@ def main():
                 'crossover_rate': random.choice([0.1, 0.3, 0.6, 0.9]),
                 'mutation_rate': random.choice([0, 0.01, 0.05, 0.1]),
                 'elite_size': random.choice([0, 1, 2, 5, 10]),
-                'num_runs': random.choice([10, 25, 50, 100]),
+                'num_runs': random.choice([10, 15, 25]),
                 'improveThresh': random.choice([0.001, 0.01, 0.1]),
                 'stagThresh': random.choice([20, 50, 100])
             })
@@ -315,6 +317,7 @@ def main():
     root.withdraw()
     root.after(0, lambda: show_results(results))
     root.after(500, lambda: create_figure_window(len(results)))
+    print(f'Took {(time() - time_start) / 60:.2f} minutes!')
     root.mainloop()
 
 def create_figure_window(num_trials):

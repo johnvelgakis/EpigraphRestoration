@@ -92,7 +92,7 @@ class GeneticAlgorithm:
             if best_fitness >= 100:
                 break
 
-            print("-----------------\n Generation {g} \n-------------------")
+            print(f"-----------------\n Generation {g} \n-------------------")
             
             elite = tools.selBest(population, self.elite_size)
             offspring = self.toolbox.select(population, len(population) - self.elite_size)
@@ -144,14 +144,14 @@ class GeneticAlgorithm:
         best_epigraph_overall = None
 
         for _ in range(self.num_runs):
-            best_individual, best_epigraph, best_fitnesses = self.run_single()
+            best_individual, best_epigraph, best_fitness = self.run_single()
             best_individuals.append(best_individual.fitness.values[0])
-            num_generations.append(len(best_fitnesses))
+            num_generations.append(len(best_fitness))
 
             if len(avg_fitness_per_gen) == 0:
-                avg_fitness_per_gen = best_fitnesses
+                avg_fitness_per_gen = best_fitness
             else:
-                avg_fitness_per_gen = [sum(x) / 2 for x in zip(avg_fitness_per_gen, best_fitnesses)]
+                avg_fitness_per_gen = [sum(x) / 2 for x in zip(avg_fitness_per_gen, best_fitness)]
             
             best_epigraph_overall = best_epigraph
 
@@ -162,7 +162,7 @@ class GeneticAlgorithm:
         print("Average best fitness over all runs:", ave_best_fitness)
         print("Average number of generations:", ave_generations)
 
-        trial_number = self.get_trial_number()
+        trial_number = self.get_last_trial_number() + 1
         plt.plot(avg_fitness_per_gen)
         plt.xlabel('Generation')
         plt.ylabel('Average Best Fitness')
@@ -173,14 +173,24 @@ class GeneticAlgorithm:
         plt.show()
         print(self.target_vector)
         self.update_experiment_results(trial_number, best_epigraph_overall, ave_best_fitness, ave_generations)
-        return self.decode_individual(tools.selBest(self.toolbox.population(n=self.population_size), 1)[0])
+        return best_epigraph_overall
     
-    def get_trial_number(self):
-        if not os.path.exists('experimentResults.txt'):
-            return 1
-        with open('experimentResults.txt', 'r') as file:
-            lines = file.readlines()
-        return len(lines) + 1
+    def get_last_trial_number(self):
+        last_trial = 0
+        if os.path.exists('experimentResults.txt'):
+            with open('experimentResults.txt', 'r') as file:
+                lines = file.readlines()
+                if lines:
+                    last_line = lines[-1]
+                    last_trial = int(last_line.split(":")[0].split("Trial")[1].strip())
+
+        # if os.path.exists('experimentResults.csv'):
+        #     df = pd.read_csv('experimentResults.csv')
+        #     if not df.empty:
+        #         last_trial = max(last_trial, df['trial'].max())
+
+        return last_trial
+
 
     def update_experiment_results(self, trial_number, best_epigraph, ave_best_fitness, ave_generations):
         print(f"Updating experimentResults.txt with trial {trial_number}")
@@ -192,12 +202,12 @@ class GeneticAlgorithm:
         csv_file = 'experimentResults.csv'
         write_header = not os.path.exists(csv_file)
         with open(csv_file, 'a') as csvfile:
-            fieldnames = ['Trial', 'epigraphRestored', 'ave_fitness', 'ave_generations', 'num_runs', 'population_size', 'generations', 'crossover_rate', 'mutation_rate', 'elite_size', 'improveThresh', 'stagThresh']
+            fieldnames = ['trial', 'epigraphRestored', 'ave_fitness', 'ave_generations', 'num_runs', 'population_size', 'generations', 'crossover_rate', 'mutation_rate', 'elite_size', 'improveThresh', 'stagThresh']
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             if write_header:
                 writer.writeheader()
             writer.writerow({
-                'Trial': trial_number,
+                'trial': trial_number,
                 'epigraphRestored': best_epigraph,
                 'ave_fitness': ave_best_fitness,
                 'ave_generations': ave_generations,
@@ -211,6 +221,7 @@ class GeneticAlgorithm:
                 'stagThresh': self.stagThresh
             })
         print("Experiment results CSV updated successfully!")
+
 
 
 # Main function
@@ -248,11 +259,11 @@ if __name__ == "__main__":
     else:
         population_size = args.population_size or 100
         generations = args.generations or 1000
-        crossover_rate = args.crossover_rate or 0.1
+        crossover_rate = args.crossover_rate or 0.6
         mutation_rate = args.mutation_rate or 0.01
         elite_size = args.elite_size or 1
         num_runs = args.num_runs or 10
-        improveThresh = args.improveThresh or 0.001
+        improveThresh = args.improveThresh or 0.01
         stagThresh = args.stagThresh or 25
 
     kwargs = {'epigraphs': epigraph_texts, 
@@ -270,4 +281,3 @@ if __name__ == "__main__":
     best_epigraph = ga.run()
     print("Keyword arguments to GeneticAlgorithm:", kwargs)
     print("\nBest Epigraph:", best_epigraph)
-    
