@@ -27,7 +27,7 @@
  python epigraphRestoration.py --interactive
  ```
 
- To run <number> experiments using random parameters:
+ To run `<number>` experiments using random parameters:
  ```sh
  python testing.py --num_trials <number>
  ```
