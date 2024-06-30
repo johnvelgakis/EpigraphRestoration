@@ -27,10 +27,57 @@
  python epigraphRestoration.py --interactive
  ```
 
- To run `<number>` experiments using random parameters:
+ To run `<number>` experiments using random parameters from Table 1:
  ```sh
  python testing.py --num_trials <number>
  ```
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center;">
+  <div>
+    <strong>Table 1: Parameters</strong>
+    <table border="1" style="width: 50%; margin: 0 auto;">
+      <tr>
+        <th>Parameters</th>
+        <th>Values</th>
+      </tr>
+      <tr>
+        <td>population size</td>
+        <td>[20, 50, 100, 200, 250, 500, 1000]</td>
+      </tr>
+      <tr>
+        <td>number of generations</td>
+        <td>[250, 500, 1000]</td>
+      </tr>
+      <tr>
+        <td>crossover probability</td>
+        <td>[0.1, 0.3, 0.6, 0.9]</td>
+      </tr>
+      <tr>
+        <td>mutation probability</td>
+        <td>[0, 0.01, 0.05, 0.1]</td>
+      </tr>
+      <tr>
+        <td>number of elits</td>
+        <td>[0, 1, 2, 5, 10]</td>
+      </tr>
+      <tr>
+        <td>number of runs</td>
+        <td>[10, 15, 25]</td>
+      </tr>
+      <tr>
+        <td>improve threshold</td>
+        <td>[0.001, 0.01, 0.1]</td>
+      </tr>
+      <tr>
+        <td>stagnation threshold</td>
+        <td>[20, 50, 100]</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+
+
+
 
  To run the predefined experiments:
  ```sh
