@@ -70,7 +70,7 @@
 
  ## Examples
 
- Here are is an example of a restored epigraph:
+ Here is an example of a restored epigraph:
 
  1. Original: [...] αλεξανδρε ουδις [...]  
     Restored: αγενειων αλεξανδρε ουδις αρτεμισιου
